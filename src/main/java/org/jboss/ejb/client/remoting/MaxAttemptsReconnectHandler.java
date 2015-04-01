@@ -64,6 +64,7 @@ abstract class MaxAttemptsReconnectHandler implements ReconnectHandler {
         try {
             final Connection connection = remotingConnectionManager.getConnection(endpoint, protocol, host, port, connectionConfiguration);
             logger.debugf("Successfully reconnected on attempt#%d to connection %s", reconnectAttempts, connection);
+            reconnectAttempts = 0; // reset the reconnect attempt to 0
             return connection;
 
         } catch (Exception e) {
