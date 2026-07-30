@@ -24,6 +24,7 @@ import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.EJBReceiver;
 import org.jboss.ejb.client.EJBReceiverContext;
 import org.jboss.ejb.client.EJBTransportProvider;
+import org.jboss.remoting3.Endpoint;
 import org.kohsuke.MetaInfServices;
 
 /**
@@ -37,12 +38,19 @@ public final class RemoteTransportProvider implements EJBTransportProvider {
     static final AttachmentKey<RemoteEJBReceiver> ATTACHMENT_KEY = new AttachmentKey<>();
     private static final Logs log = Logs.MAIN;
 
+    private final Endpoint endpoint;
+
     public RemoteTransportProvider() {
+        this(Endpoint.getCurrent());
+    }
+
+    public RemoteTransportProvider(final Endpoint endpoint) {
+        this.endpoint = endpoint;
     }
 
     public void notifyRegistered(final EJBReceiverContext receiverContext) {
         final EJBClientContext clientContext = receiverContext.getClientContext();
-        RemoteEJBReceiver receiver = new RemoteEJBReceiver(this, receiverContext, new RemotingEJBDiscoveryProvider());
+        RemoteEJBReceiver receiver = new RemoteEJBReceiver(this, receiverContext, new RemotingEJBDiscoveryProvider(), endpoint);
         clientContext.putAttachmentIfAbsent(ATTACHMENT_KEY, receiver);
         log.tracef("RemoteTransportProvider %s registered receiver %s with client context %s", this, receiver, clientContext);
     }

@@ -93,8 +93,14 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
     
     private static final long DESTINATION_RECHECK_INTERVAL = TimeUnit.MILLISECONDS.toNanos(SecurityUtils.getLong(SystemProperties.DESTINATION_RECHECK_INTERVAL, 5000L));
 
+    private Endpoint endpoint;
+
     public RemotingEJBDiscoveryProvider() {
-        Endpoint.getCurrent(); //this will blow up if remoting is not present, preventing this from being registered
+        this(Endpoint.getCurrent()); //this will blow up if remoting is not present, preventing this from being registered
+    }
+
+    public RemotingEJBDiscoveryProvider(Endpoint endpoint) {
+        this.endpoint = endpoint;
     }
 
     public NodeInformation getNodeInformation(final String nodeName) {
@@ -149,7 +155,7 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
 
         final List<EJBClientConnection> configuredConnections = ejbClientContext.getConfiguredConnections();
 
-        final DiscoveryAttempt discoveryAttempt = new DiscoveryAttempt(serviceType, filterSpec, result, ejbReceiver, AuthenticationContext.captureCurrent());
+        final DiscoveryAttempt discoveryAttempt = new DiscoveryAttempt(serviceType, filterSpec, result, ejbReceiver, AuthenticationContext.captureCurrent(), endpoint);
 
         boolean ok = false;
         boolean discoveryConnections = false;
@@ -369,14 +375,14 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
          */
         private final Set<String> eagerNodes;
 
-        DiscoveryAttempt(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult discoveryResult, final RemoteEJBReceiver ejbReceiver, final AuthenticationContext authenticationContext) {
+        DiscoveryAttempt(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult discoveryResult, final RemoteEJBReceiver ejbReceiver, final AuthenticationContext authenticationContext, final Endpoint endpoint) {
             this.serviceType = serviceType;
             this.filterSpec = filterSpec;
             this.discoveryResult = discoveryResult;
             this.ejbReceiver = ejbReceiver;
 
             this.authenticationContext = authenticationContext;
-            endpoint = Endpoint.getCurrent();
+            this.endpoint = endpoint;
             outerNotifier = new IoFuture.HandlingNotifier<ConnectionPeerIdentity, URI>() {
                 public void handleCancelled(final URI destination) {
                     countDown();

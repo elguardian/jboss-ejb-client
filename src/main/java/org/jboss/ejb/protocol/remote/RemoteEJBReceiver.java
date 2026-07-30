@@ -65,15 +65,21 @@ class RemoteEJBReceiver extends EJBReceiver {
     private final RemoteTransportProvider remoteTransportProvider;
     private final EJBReceiverContext receiverContext;
     private final RemotingEJBDiscoveryProvider discoveredNodeRegistry;
+    private final Endpoint endpoint;
 
     final ClientServiceHandle<EJBClientChannel> serviceHandle;
 
     private final RetryExecutorWrapper retryExecutorWrapper = new RetryExecutorWrapper();
 
     RemoteEJBReceiver(final RemoteTransportProvider remoteTransportProvider, final EJBReceiverContext receiverContext, final RemotingEJBDiscoveryProvider discoveredNodeRegistry) {
+        this(remoteTransportProvider, receiverContext, discoveredNodeRegistry, Endpoint.getCurrent());
+    }
+
+    RemoteEJBReceiver(final RemoteTransportProvider remoteTransportProvider, final EJBReceiverContext receiverContext, final RemotingEJBDiscoveryProvider discoveredNodeRegistry, final Endpoint endpoint) {
         this.remoteTransportProvider = remoteTransportProvider;
         this.receiverContext = receiverContext;
         this.discoveredNodeRegistry = discoveredNodeRegistry;
+        this.endpoint = endpoint;
         serviceHandle = new ClientServiceHandle<>("jboss.ejb", channel -> EJBClientChannel.construct(channel, this.discoveredNodeRegistry, retryExecutorWrapper));
     }
 
@@ -117,7 +123,7 @@ class RemoteEJBReceiver extends EJBReceiver {
             } else if (exception instanceof SSLException && exception.getMessage().equals("Unrecognized SSL message, plaintext connection?")) {
                 Logs.REMOTING.error("Error in connecting to " + destination + " : The destination doesn't support SSL. Did you mean to use http protocol instead?");
             }
-            attachment.requestFailed(new RequestSendFailedException("Error in connecting to Destination @" + destination + " : Please check if the client and server are configured to use the same protocol and ports. ", exception, false), retryExecutorWrapper.getExecutor(Endpoint.getCurrent().getXnioWorker()));
+            attachment.requestFailed(new RequestSendFailedException("Error in connecting to Destination @" + destination + " : Please check if the client and server are configured to use the same protocol and ports. ", exception, false), retryExecutorWrapper.getExecutor(endpoint.getXnioWorker()));
         }
     };
 
@@ -180,11 +186,11 @@ class RemoteEJBReceiver extends EJBReceiver {
     }
 
     protected InetSocketAddress getSourceAddress(final InetSocketAddress destination) {
-        return Endpoint.getCurrent().getXnioWorker().getBindAddress(destination.getAddress());
+        return endpoint.getXnioWorker().getBindAddress(destination.getAddress());
     }
 
     protected boolean isConnected(final URI uri) {
-        final IoFuture<ConnectionPeerIdentity> future = Endpoint.getCurrent().getConnectedIdentityIfExists(uri, "ejb", "jboss", AuthenticationContext.captureCurrent());
+        final IoFuture<ConnectionPeerIdentity> future = endpoint.getConnectedIdentityIfExists(uri, "ejb", "jboss", AuthenticationContext.captureCurrent());
         try {
             return future != null && future.getStatus() == IoFuture.Status.DONE && future.get().getConnection().isOpen();
         } catch (IOException e) {
@@ -199,17 +205,17 @@ class RemoteEJBReceiver extends EJBReceiver {
 
         if (cluster != null) {
             if(System.getSecurityManager() == null) {
-                return discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(Endpoint.getCurrent(), target, "ejb", "jboss", authenticationContext, cluster);
+                return discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(endpoint, target, "ejb", "jboss", authenticationContext, cluster);
             } else {
                 return doPrivileged((PrivilegedAction<IoFuture<ConnectionPeerIdentity>>) () ->
-                        discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(Endpoint.getCurrent(), target, "ejb", "jboss", authenticationContext, cluster));
+                        discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(endpoint, target, "ejb", "jboss", authenticationContext, cluster));
             }
         }
 
         if(System.getSecurityManager() == null) {
-            return Endpoint.getCurrent().getConnectedIdentity(target, "ejb", "jboss", authenticationContext);
+            return endpoint.getConnectedIdentity(target, "ejb", "jboss", authenticationContext);
         } else {
-            return doPrivileged((PrivilegedAction<IoFuture<ConnectionPeerIdentity>>) () -> Endpoint.getCurrent().getConnectedIdentity(target, "ejb", "jboss", authenticationContext));
+            return doPrivileged((PrivilegedAction<IoFuture<ConnectionPeerIdentity>>) () -> endpoint.getConnectedIdentity(target, "ejb", "jboss", authenticationContext));
         }
     }
 
